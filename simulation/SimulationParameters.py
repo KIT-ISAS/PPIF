@@ -10,8 +10,11 @@ class SimParameters(object):
     A convenience class for bundling all simulation settings.
     '''
     
+    # Whether parallel processing should be attempted
+    TRY_MULTIPROCESSING = True
+    
     # How many agent runs in total the simulation should include
-    TOTAL_RUNS = 100
+    TOTAL_RUNS = 10000
 
     # The size of the square area where the simulation occurs (along one side)
     AREA_SIDE_LENGTH = 100.0 # m
