@@ -59,10 +59,11 @@ class SimAgent(object):
         self.controlEstimate, self.controlCov, controlPredInfo, controlPredCovInfo = self.PredictionStep(self.controlEstimate, self.controlCov, fast=True)
         
         # Obtain encrypted measurements from the sensor grid
-        encryptedInfoVector, encryptedInfoMatrix, _, _, controlInfoVector, controlInfoMatrix = self.MySensor.GetEncryptedMeasurement(self.MyPos, self.Name, self.pk)
-        
-        # Decrypt the measurements
-        decryptedInfoVector, decryptedInfoMatrix = self.DecryptMeasurementResults(encryptedInfoVector, encryptedInfoMatrix, controlInfoVector)
+        integerInfoVector, integerInfoMatrix, controlInfoVector, controlInfoMatrix = self.MySensor.GetAggregatedMeasurementInfoFormAsInteger(self.MyPos, fast=True)
+        decryptedInfoVector, decryptedInfoMatrix = integerInfoVector.astype(float) / param.QUANTIZATION_FACTOR, integerInfoMatrix.astype(float) / param.QUANTIZATION_FACTOR
+
+        #encryptedInfoVector, encryptedInfoMatrix, _, _, controlInfoVector, controlInfoMatrix = self.MySensor.GetEncryptedMeasurement(self.MyPos, self.Name, self.pk)
+        #decryptedInfoVector, decryptedInfoMatrix = self.DecryptMeasurementResults(encryptedInfoVector, encryptedInfoMatrix, controlInfoVector)
         
         # Apply the information filter
         self.stateEstimate, self.estimateCov = self.InformationFilterStep(predictInfo, predictCovInfo, decryptedInfoVector, decryptedInfoMatrix)

@@ -81,6 +81,23 @@ class SimSensor(object):
         outCov = np.rint(infCov * param.QUANTIZATION_FACTOR).astype(np.int64)
         return outMeas, outCov, infMeas, infCov
     
+    def GetAggregatedMeasurementInfoFormAsInteger(self, realPos, fast = False):
+        try:
+            outMeas, outCov, infMeas, infCov = self.GetMeasurementInfoFormAsInteger(realPos, fast = fast)
+        except ValueError:
+            outMeas, outCov = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
+            infMeas, infCov = np.zeros((2,1), dtype=float), np.zeros((2,2), dtype=float)
+        
+        for neighbor in self.MyNeighbours:
+            neighIntMeas, neighIntCov, neighFloatMeas, neighFloatCov = neighbor.GetAggregatedMeasurementInfoFormAsInteger(realPos, fast=fast)
+            # Now aggregate the measurements
+            outMeas += neighIntMeas
+            outCov += neighIntCov
+            infMeas += neighFloatMeas
+            infCov += neighFloatCov
+        
+        return outMeas, outCov, infMeas, infCov
+    
     def GetEncryptedMeasurement(self, realPos, requester, publicKey, networkLog = False):        
         # Get plaintext measurement as integer, but if it throws an error because it cannot detect the agent at this range,
         # simply returning all zeroes in this case doesn't affect the end result
