@@ -28,17 +28,7 @@ class PaillierCryptosystem(object):
         # Ensure the that gcd(pq, (p - 1)(q - 1)) == 1
         while gcd(p * q, (p - 1) * (q - 1)) != 1:
             q = PaillierCryptosystem.GetRandomPrime(PrimeRange)
-        # Compute additional values
-        n = p * q
-        nSquared = n * n
-        l = lcm(p - 1, q - 1)
-        # Get a random integer generator
-        g = randint(0, nSquared)
-        # Ensure n divides the order of g
-        tmp = PaillierCryptosystem.L(pow(g, l, nSquared), n)
-        mu = ModularIntegerInverse(tmp, n)
-        # Return pk, sk
-        return (n, g), (l, mu, n)
+        return PaillierCryptosystem.KeyGenFromPrimes(p, q)
     
     @staticmethod
     def KeyGenFromPrimes(p, q):

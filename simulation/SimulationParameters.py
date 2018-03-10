@@ -24,7 +24,7 @@ class SimParameters(object):
     QUANTIZATION_FACTOR = 2 ** BIT_PRECISION
     
     # The length of the encryption key (for test purposes only, no real security guarantee!)
-    CRYPTO_KEY_LENGTH = 58 # bits
+    CRYPTO_KEY_LENGTH = 64 # bits
     
     # The number of sensors per row of the (square) sensor grid
     SENSOR_GRID_ROW_COUNT = 5 # DO NOT OVERRIDE WITHOUT UPDATING RunSimulation.py!
