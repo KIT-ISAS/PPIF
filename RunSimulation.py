@@ -33,11 +33,14 @@ MinorHub4.MyNeighbours = [SensorArray[14], SensorArray[17], SensorArray[19], Sen
 # TODO: Make the above part generic...
 
 # Runs a simulation a specified number of times
-def Simulation(runs, runOffset = 0):
+def Simulation(runs, PID = None):
     EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance = 0, np.zeros((2,2), dtype=float), np.zeros((2,2), dtype=float)
     for run in range(runs):
         if runs < 100 or run % (runs // 100) == 0:
-            print("Running simulation #", runOffset + run, "of", param.TOTAL_RUNS)
+            if PID is None:
+                print("Running simulation #", run, "of", runs)
+            else:
+                print("Process #", PID, "is at", np.round(run/runs*100, 2), "%")
         
         # Spawn a new agent at the edge of the field with a constant velocity
         CurrentAgent = Agent(run, CentralHub)
@@ -50,9 +53,9 @@ def Simulation(runs, runOffset = 0):
     return EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance
 
 # A wrapper for the simulation function that lets it run in parallel
-def ParallelSimulaton(runs, runOffset, globalEstCount, globalEncCov, globalControlCov):
+def ParallelSimulaton(PID, runs, globalEstCount, globalEncCov, globalControlCov):
     # Run the simulation
-    EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance = Simulation(runs, runOffset)
+    EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance = Simulation(runs, PID=PID)
     # Synchronize the output
     with globalEstCount.get_lock():
         globalEstCount.value += EstimateCount
@@ -75,7 +78,7 @@ if __name__ == '__main__':
         # Prepare output structures for the processes
         syncEstimateCount, syncEncryptedEstimateCovariance, syncControlEstimateCovariance = mp.Value("d", 0), mp.Array("d", 4), mp.Array("d", 4)
         # Create the process objects
-        processes = [mp.Process(target=ParallelSimulaton, args=(experimentsPerProcess, experimentsPerProcess * p, syncEstimateCount, syncEncryptedEstimateCovariance, syncControlEstimateCovariance)) for p in range(parallelProcessCount)]
+        processes = [mp.Process(target=ParallelSimulaton, args=(p, experimentsPerProcess, syncEstimateCount, syncEncryptedEstimateCovariance, syncControlEstimateCovariance)) for p in range(parallelProcessCount)]
         
         # Run all processes in parallel
         [p.start() for p in processes]
