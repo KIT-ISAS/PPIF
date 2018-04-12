@@ -50,6 +50,10 @@ class SimSensor(object):
         Jacobian = np.ndarray((2,2), buffer = JacobianContent)
         return np.dot(np.dot(Jacobian, self.PolarCovarianceMatrix), np.transpose(Jacobian))
     
+    def CanSeeAgent(self, realPos):
+        _, realDist = self.GlobalCartesianToLocalPolar(realPos)
+        return (realDist <= param.SENSOR_DETECTION_RANGE)
+    
     def GetNoisyMeasurement(self, realPos):
         # Simulate the azimuth and distance to the realPos from MyPos
         realAzimuth, realDist = self.GlobalCartesianToLocalPolar(realPos)
@@ -63,9 +67,9 @@ class SimSensor(object):
         covarianceMatrix = self.GetCovarianceAtMeasuredPos(noisyAzimuth, noisyDist)
         return noisyPos, covarianceMatrix
 
-    def GetMeasurementInformationForm(self, realPos, fast = False):
+    def GetMeasurementInformationForm(self, realPos, scalingFactor, fast = False):
         measurement, covariance = self.GetMeasurementAndCovariance(realPos)
-        invCovariance = np.linalg.inv(covariance)
+        invCovariance = np.linalg.inv(covariance) * scalingFactor
         # If the measurement matrix is an identity, we can fast-track the calculations
         if fast:
             return np.dot(invCovariance, measurement), invCovariance
@@ -75,17 +79,21 @@ class SimSensor(object):
         informationMatrix = np.dot(factor, self.MeasurementMatrix)
         return informationVector, informationMatrix
     
-    def GetMeasurementInfoFormAsInteger(self, realPos, fast = False):
-        infMeas, infCov = self.GetMeasurementInformationForm(realPos, fast = fast)
+    def GetMeasurementInfoFormAsInteger(self, realPos, scalingFactor, fast = False):
+        infMeas, infCov = self.GetMeasurementInformationForm(realPos, scalingFactor, fast = fast)
         outMeas = np.rint(infMeas * param.QUANTIZATION_FACTOR).astype(np.int64)
         outCov = np.rint(infCov * param.QUANTIZATION_FACTOR).astype(np.int64)
         return outMeas, outCov, infMeas, infCov
     
-    def GetEncryptedMeasurement(self, realPos, requester, publicKey, networkLog = False):        
+    def GetEncryptedMeasurement(self, realPos, requester, publicKey, networkLog = False, scalingFactor = None):
+        # Obtain the scaling factor
+        if scalingFactor is None:
+            scalingFactor = 1 / self.CountMeasurements(realPos) if param.NORMALIZE_MEASUREMENT_COUNT else 1
+        
         # Get plaintext measurement as integer, but if it throws an error because it cannot detect the agent at this range,
         # simply returning all zeroes in this case doesn't affect the end result
         try:
-            intMeas, intCov, floatMeas, floatCov = self.GetMeasurementInfoFormAsInteger(realPos, fast = True)
+            intMeas, intCov, floatMeas, floatCov = self.GetMeasurementInfoFormAsInteger(realPos, scalingFactor, fast = True)
         except ValueError:
             intMeas, intCov = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
             floatMeas, floatCov = np.zeros((2,1), dtype=float), np.zeros((2,2), dtype=float)
@@ -96,7 +104,7 @@ class SimSensor(object):
         # Now query every neighbor for their measurements
         for neighbor in self.MyNeighbours:
             # Get the measurements from neighbors
-            neighEncMeas, neighEncCov, neighIntMeas, neighIntCov, neighFloatMeas, neighFloatCov = neighbor.GetEncryptedMeasurement(realPos, self.Name, publicKey)
+            neighEncMeas, neighEncCov, neighIntMeas, neighIntCov, neighFloatMeas, neighFloatCov = neighbor.GetEncryptedMeasurement(realPos, self.Name, publicKey, scalingFactor = scalingFactor)
             # Now aggregate the measurements
             encMeas.Add(neighEncMeas)
             encCov.Add(neighEncCov)
@@ -108,3 +116,9 @@ class SimSensor(object):
         if networkLog:
             print("NETWORK LOG:", self.Name, "->", requester, ":", [encMeas.DATA, encCov.DATA])
         return encMeas, encCov, intMeas, intCov, floatMeas, floatCov
+    
+    def CountMeasurements(self, AgentPos):
+        result = 1 if self.CanSeeAgent(AgentPos) else 0
+        for neighbor in self.MyNeighbours:
+            result += neighbor.CountMeasurements(AgentPos)
+        return result

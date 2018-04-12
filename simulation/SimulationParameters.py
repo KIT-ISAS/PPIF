@@ -13,6 +13,10 @@ class SimParameters(object):
     # Whether parallel processing should be attempted
     TRY_MULTIPROCESSING = True
     
+    # Whether the information vectors should be scaled by the inverse of the measurement count
+    NORMALIZE_MEASUREMENT_COUNT = False
+    RENORMALIZATION_FACTOR = 6
+    
     # How many agent runs in total the simulation should include
     TOTAL_RUNS = 10000
 
@@ -40,3 +44,4 @@ class SimParameters(object):
     
     # The standard deviation for sampling agents' initial velocity (X and Y components are sampled independently)
     AGENT_VELOCITY_SIGMA = 5.0 # m/s
+    
