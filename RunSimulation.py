@@ -96,6 +96,12 @@ if __name__ == '__main__':
     
     # Print the results
     print("total number of estimations made:", EstimateCount, ", per experiment:", EstimateCount / param.TOTAL_RUNS)
+    EncryptedMSE, ControlMSE = EncryptedEstimateCovariance[0,0]+EncryptedEstimateCovariance[1,1], ControlEstimateCovariance[0,0]+ControlEstimateCovariance[1,1]
+    print("encrypted estimator MSE:", EncryptedMSE)
+    print("control estimator MSE:", ControlMSE)
+    print("Mean Squared Error gain:", EncryptedMSE-ControlMSE, "(", (EncryptedMSE-ControlMSE)/ControlMSE*100, "%)")
+    '''
     print("encrypted estimator covariance:\n", EncryptedEstimateCovariance)
     print("control (plaintext float) estimator covariance:\n", ControlEstimateCovariance)
     print("precision loss due to encryption (negative means smaller covariance with encryption!):\n", EncryptedEstimateCovariance - ControlEstimateCovariance)
+    '''
