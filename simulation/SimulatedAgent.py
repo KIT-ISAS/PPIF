@@ -102,9 +102,8 @@ class SimAgent(object):
         return predictedState, predictedCov, predictedStateInfo, predictedCovInfo
     
     def InformationFilterStep(self, predictedInfoVector, predictedInfoMatrix, measurementInfoVector, measurementInfoMatrix):
-        renormFactor = param.RENORMALIZATION_FACTOR if param.NORMALIZE_MEASUREMENT_COUNT else 1
-        filteredCov = np.linalg.inv(predictedInfoMatrix + measurementInfoMatrix * renormFactor)
-        filteredState = np.dot(filteredCov, predictedInfoVector + measurementInfoVector * renormFactor)
+        filteredCov = np.linalg.inv(predictedInfoMatrix + measurementInfoMatrix)
+        filteredState = np.dot(filteredCov, predictedInfoVector + measurementInfoVector)
         return filteredState, filteredCov
         
     def DecryptMeasurementResults(self, encInfoVector, encInfoMatrix, validationVector):

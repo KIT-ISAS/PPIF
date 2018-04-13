@@ -88,7 +88,7 @@ class SimSensor(object):
     def GetEncryptedMeasurement(self, realPos, requester, publicKey, networkLog = False, scalingFactor = None):
         # Obtain the scaling factor
         if scalingFactor is None:
-            scalingFactor = 1 / self.CountMeasurements(realPos) if param.NORMALIZE_MEASUREMENT_COUNT else 1
+            scalingFactor = param.RENORMALIZATION_FACTOR / self.CountMeasurements(realPos) if param.NORMALIZE_MEASUREMENT_COUNT else 1
         
         # Get plaintext measurement as integer, but if it throws an error because it cannot detect the agent at this range,
         # simply returning all zeroes in this case doesn't affect the end result
