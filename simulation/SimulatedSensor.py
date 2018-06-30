@@ -12,7 +12,10 @@ class SimSensor(object):
     '''
     Simulated sensor measuring the position of the tracked object via angle and distance to it.
     Dynamically estimates the measurement covariance around the measured position.
-    '''
+    '''    
+    Qfactor8bit = 2**8
+    Qfactor16bit = 2**16
+    Qfactor24bit = 2**24
 
     def __init__(self, ID, PosX, PosY):
         '''
@@ -77,26 +80,39 @@ class SimSensor(object):
     
     def GetMeasurementInfoFormAsInteger(self, realPos, fast = False):
         infMeas, infCov = self.GetMeasurementInformationForm(realPos, fast = fast)
-        outMeas = np.rint(infMeas * param.QUANTIZATION_FACTOR).astype(np.int64)
-        outCov = np.rint(infCov * param.QUANTIZATION_FACTOR).astype(np.int64)
-        return outMeas, outCov, infMeas, infCov
+        outMeas8bit = np.rint(infMeas * self.Qfactor8bit).astype(np.int64)
+        outCov8bit = np.rint(infCov * self.Qfactor8bit).astype(np.int64)
+        outMeas16bit = np.rint(infMeas * self.Qfactor16bit).astype(np.int64)
+        outCov16bit = np.rint(infCov * self.Qfactor16bit).astype(np.int64)
+        outMeas24bit = np.rint(infMeas * self.Qfactor24bit).astype(np.int64)
+        outCov24bit = np.rint(infCov * self.Qfactor24bit).astype(np.int64)
+        return outMeas8bit, outCov8bit, infMeas, infCov, outMeas16bit, outCov16bit, outMeas24bit, outCov24bit
     
     def GetAggregatedMeasurementInfoFormAsInteger(self, realPos, fast = False):
         try:
-            outMeas, outCov, infMeas, infCov = self.GetMeasurementInfoFormAsInteger(realPos, fast = fast)
+            outMeas8bit, outCov8bit, infMeas, infCov, outMeas16bit, outCov16bit, outMeas24bit, outCov24bit = self.GetMeasurementInfoFormAsInteger(realPos, fast = fast)
+            MeasCount = 1
         except ValueError:
-            outMeas, outCov = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
+            outMeas8bit, outCov8bit = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
+            outMeas16bit, outCov16bit = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
+            outMeas24bit, outCov24bit = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
             infMeas, infCov = np.zeros((2,1), dtype=float), np.zeros((2,2), dtype=float)
+            MeasCount = 0
         
         for neighbor in self.MyNeighbours:
-            neighIntMeas, neighIntCov, neighFloatMeas, neighFloatCov = neighbor.GetAggregatedMeasurementInfoFormAsInteger(realPos, fast=fast)
+            extraMeasCount, neighInt8Meas, neighInt8Cov, neighFloatMeas, neighFloatCov, neighInt16Meas, neighInt16Cov, neighInt24Meas, neighInt24Cov = neighbor.GetAggregatedMeasurementInfoFormAsInteger(realPos, fast=fast)
             # Now aggregate the measurements
-            outMeas += neighIntMeas
-            outCov += neighIntCov
+            MeasCount += extraMeasCount
+            outMeas8bit += neighInt8Meas
+            outCov8bit += neighInt8Cov
+            outMeas16bit += neighInt16Meas
+            outCov16bit += neighInt16Cov
+            outMeas24bit += neighInt24Meas
+            outCov24bit += neighInt24Cov
             infMeas += neighFloatMeas
             infCov += neighFloatCov
         
-        return outMeas, outCov, infMeas, infCov
+        return MeasCount, outMeas8bit, outCov8bit, infMeas, infCov, outMeas16bit, outCov16bit, outMeas24bit, outCov24bit
     
     def GetEncryptedMeasurement(self, realPos, requester, publicKey, networkLog = False):        
         # Get plaintext measurement as integer, but if it throws an error because it cannot detect the agent at this range,

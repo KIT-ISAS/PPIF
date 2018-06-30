@@ -7,6 +7,7 @@ import numpy as np
 from numpy.random import normal as Gauss
 from encryption import PaillierCryptosystem as Crypto
 from simulation import Parameters as param
+from simulation.SimulatedSensor import SimSensor
 
 class SimAgent(object):
     '''
@@ -39,8 +40,14 @@ class SimAgent(object):
         self.stateEstimate, self.estimateCov = np.ndarray((2,1), buffer = np.ones((2), dtype=float) * (param.AREA_SIDE_LENGTH / 2)), np.identity((2), dtype=float) * param.QUANTIZATION_FACTOR
         self.controlEstimate, self.controlCov = np.copy(self.stateEstimate), np.copy(self.estimateCov)
         
+        self.stateEst16, self.estCov16 = np.copy(self.stateEstimate), np.copy(self.estimateCov)
+        self.stateEst24, self.estCov24 = np.copy(self.stateEstimate), np.copy(self.estimateCov)
+
         # Set sensor hub
         self.MySensor = CentralSensorHub
+        
+        # How many sensors were queried last
+        self.LastMeasurementCount = 0
     
     def Update(self):
         '''
@@ -58,9 +65,15 @@ class SimAgent(object):
         self.stateEstimate, self.estimateCov, predictInfo, predictCovInfo = self.PredictionStep(self.stateEstimate, self.estimateCov, fast=True)
         self.controlEstimate, self.controlCov, controlPredInfo, controlPredCovInfo = self.PredictionStep(self.controlEstimate, self.controlCov, fast=True)
         
+        self.stateEst16, self.estCov16, predictInfo16, predictCov16 = self.PredictionStep(self.stateEst16, self.estCov16, fast=True)
+        self.stateEst24, self.estCov24, predictInfo24, predictCov24 = self.PredictionStep(self.stateEst24, self.estCov24, fast=True)
+        
         # Obtain encrypted measurements from the sensor grid
-        integerInfoVector, integerInfoMatrix, controlInfoVector, controlInfoMatrix = self.MySensor.GetAggregatedMeasurementInfoFormAsInteger(self.MyPos, fast=True)
-        decryptedInfoVector, decryptedInfoMatrix = integerInfoVector.astype(float) / param.QUANTIZATION_FACTOR, integerInfoMatrix.astype(float) / param.QUANTIZATION_FACTOR
+        self.LastMeasurementCount, integerInfoVector, integerInfoMatrix, controlInfoVector, controlInfoMatrix, int16InfoV, int16InfoM, int24InfoV, int24InfoM = self.MySensor.GetAggregatedMeasurementInfoFormAsInteger(self.MyPos, fast=True)
+        decryptedInfoVector, decryptedInfoMatrix = integerInfoVector.astype(float) / SimSensor.Qfactor8bit, integerInfoMatrix.astype(float) / SimSensor.Qfactor8bit
+        
+        decInfoVector16, decInfoMat16 = int16InfoV.astype(float) / SimSensor.Qfactor16bit, int16InfoM.astype(float) / SimSensor.Qfactor16bit
+        decInfoVector24, decInfoMat24 = int24InfoV.astype(float) / SimSensor.Qfactor24bit, int24InfoM.astype(float) / SimSensor.Qfactor24bit
 
         #encryptedInfoVector, encryptedInfoMatrix, _, _, controlInfoVector, controlInfoMatrix = self.MySensor.GetEncryptedMeasurement(self.MyPos, self.Name, self.pk)
         #decryptedInfoVector, decryptedInfoMatrix = self.DecryptMeasurementResults(encryptedInfoVector, encryptedInfoMatrix, controlInfoVector)
@@ -68,6 +81,9 @@ class SimAgent(object):
         # Apply the information filter
         self.stateEstimate, self.estimateCov = self.InformationFilterStep(predictInfo, predictCovInfo, decryptedInfoVector, decryptedInfoMatrix)
         self.controlEstimate, self.controlCov = self.InformationFilterStep(controlPredInfo, controlPredCovInfo, controlInfoVector, controlInfoMatrix)
+        
+        self.stateEst16, self.estCov16 = self.InformationFilterStep(predictInfo16, predictCov16, decInfoVector16, decInfoMat16)
+        self.stateEst24, self.estCov24 = self.InformationFilterStep(predictInfo24, predictCov24, decInfoVector24, decInfoMat24)
         
         return True
     
