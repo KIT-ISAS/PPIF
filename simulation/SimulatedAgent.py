@@ -42,12 +42,14 @@ class SimAgent(object):
         
         self.stateEst16, self.estCov16 = np.copy(self.stateEstimate), np.copy(self.estimateCov)
         self.stateEst24, self.estCov24 = np.copy(self.stateEstimate), np.copy(self.estimateCov)
+        
+        self.stateEstFN, self.estCovFN = np.copy(self.stateEstimate), np.copy(self.estimateCov)
+        self.stateEst8N, self.estCov8N = np.copy(self.stateEstimate), np.copy(self.estimateCov)
+        self.stateEst16N, self.estCov16N = np.copy(self.stateEstimate), np.copy(self.estimateCov)
+        self.stateEst24N, self.estCov24N = np.copy(self.stateEstimate), np.copy(self.estimateCov)
 
         # Set sensor hub
         self.MySensor = CentralSensorHub
-        
-        # How many sensors were queried last
-        self.LastMeasurementCount = 0
     
     def Update(self):
         '''
@@ -67,13 +69,22 @@ class SimAgent(object):
         
         self.stateEst16, self.estCov16, predictInfo16, predictCov16 = self.PredictionStep(self.stateEst16, self.estCov16, fast=True)
         self.stateEst24, self.estCov24, predictInfo24, predictCov24 = self.PredictionStep(self.stateEst24, self.estCov24, fast=True)
+
+        self.stateEstFN, self.estCovFN, predictInfoFN, predictCovFN = self.PredictionStep(self.stateEstFN, self.estCovFN, fast=True)
+        self.stateEst8N, self.estCov8N, predictInfo8N, predictCov8N = self.PredictionStep(self.stateEst8N, self.estCov8N, fast=True)
+        self.stateEst16N, self.estCov16N, predictInfo16N, predictCov16N = self.PredictionStep(self.stateEst16N, self.estCov16N, fast=True)
+        self.stateEst24N, self.estCov24N, predictInfo24N, predictCov24N = self.PredictionStep(self.stateEst24N, self.estCov24N, fast=True)
         
         # Obtain encrypted measurements from the sensor grid
-        self.LastMeasurementCount, integerInfoVector, integerInfoMatrix, controlInfoVector, controlInfoMatrix, int16InfoV, int16InfoM, int24InfoV, int24InfoM = self.MySensor.GetAggregatedMeasurementInfoFormAsInteger(self.MyPos, fast=True)
+        integerInfoVector, integerInfoMatrix, controlInfoVector, controlInfoMatrix, int16InfoV, int16InfoM, int24InfoV, int24InfoM, fInfoVecN, fInfoMatN, i8InfoVecN, i8InfoMatN, i16InfoVecN, i16InfoMatN, i24InfoVecN, i24InfoMatN = self.MySensor.GetAggregatedMeasurementInfoFormAsInteger(self.MyPos, fast=True)
         decryptedInfoVector, decryptedInfoMatrix = integerInfoVector.astype(float) / SimSensor.Qfactor8bit, integerInfoMatrix.astype(float) / SimSensor.Qfactor8bit
         
         decInfoVector16, decInfoMat16 = int16InfoV.astype(float) / SimSensor.Qfactor16bit, int16InfoM.astype(float) / SimSensor.Qfactor16bit
         decInfoVector24, decInfoMat24 = int24InfoV.astype(float) / SimSensor.Qfactor24bit, int24InfoM.astype(float) / SimSensor.Qfactor24bit
+        
+        decInfoVector8N, decInfoMat8N = i8InfoVecN.astype(float) / SimSensor.Qfactor8bit, i8InfoMatN.astype(float) / SimSensor.Qfactor8bit
+        decInfoVector16N, decInfoMat16N = i16InfoVecN.astype(float) / SimSensor.Qfactor16bit, i16InfoMatN.astype(float) / SimSensor.Qfactor16bit
+        decInfoVector24N, decInfoMat24N = i24InfoVecN.astype(float) / SimSensor.Qfactor24bit, i24InfoMatN.astype(float) / SimSensor.Qfactor24bit
 
         #encryptedInfoVector, encryptedInfoMatrix, _, _, controlInfoVector, controlInfoMatrix = self.MySensor.GetEncryptedMeasurement(self.MyPos, self.Name, self.pk)
         #decryptedInfoVector, decryptedInfoMatrix = self.DecryptMeasurementResults(encryptedInfoVector, encryptedInfoMatrix, controlInfoVector)
@@ -84,6 +95,11 @@ class SimAgent(object):
         
         self.stateEst16, self.estCov16 = self.InformationFilterStep(predictInfo16, predictCov16, decInfoVector16, decInfoMat16)
         self.stateEst24, self.estCov24 = self.InformationFilterStep(predictInfo24, predictCov24, decInfoVector24, decInfoMat24)
+
+        self.stateEstFN, self.estCovFN = self.InformationFilterStep(predictInfoFN, predictCovFN, fInfoVecN, fInfoMatN)
+        self.stateEst8N, self.estCov8N = self.InformationFilterStep(predictInfo8N, predictCov8N, decInfoVector8N, decInfoMat8N)
+        self.stateEst16N, self.estCov16N = self.InformationFilterStep(predictInfo16N, predictCov16N, decInfoVector16N, decInfoMat16N)
+        self.stateEst24N, self.estCov24N = self.InformationFilterStep(predictInfo24N, predictCov24N, decInfoVector24N, decInfoMat24N)
         
         return True
     

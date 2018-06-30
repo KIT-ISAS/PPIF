@@ -15,6 +15,9 @@ class SimParameters(object):
     
     # How many agent runs in total the simulation should include
     TOTAL_RUNS = 10000
+    
+    # How many agent runs in total the simulation should include
+    RENORMALIZATION_FACTOR = 10
 
     # The size of the square area where the simulation occurs (along one side)
     AREA_SIDE_LENGTH = 100.0 # m
