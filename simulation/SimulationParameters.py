@@ -15,7 +15,7 @@ class SimParameters(object):
     
     # Whether the information vectors should be scaled by the inverse of the measurement count
     NORMALIZE_MEASUREMENT_COUNT = False
-    RENORMALIZATION_FACTOR = 6
+    RENORMALIZATION_FACTOR = 10
     
     # How many agent runs in total the simulation should include
     TOTAL_RUNS = 10000

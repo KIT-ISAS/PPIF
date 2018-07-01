@@ -100,8 +100,3 @@ if __name__ == '__main__':
     print("encrypted estimator MSE:", EncryptedMSE)
     print("control estimator MSE:", ControlMSE)
     print("Mean Squared Error gain:", EncryptedMSE-ControlMSE, "(", (EncryptedMSE-ControlMSE)/ControlMSE*100, "%)")
-    '''
-    print("encrypted estimator covariance:\n", EncryptedEstimateCovariance)
-    print("control (plaintext float) estimator covariance:\n", ControlEstimateCovariance)
-    print("precision loss due to encryption (negative means smaller covariance with encryption!):\n", EncryptedEstimateCovariance - ControlEstimateCovariance)
-    '''
