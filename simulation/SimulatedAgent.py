@@ -163,7 +163,7 @@ class SimAgent(object):
             raise e
         
         # Check for major discrepancies between decrypted and unencrypted measurements, which is indicative of an encryption overflow
-        if iVecDecQuantized != validationVector:
+        if np.linalg.norm(iVecDecQuantized - validationVector) > 0:
             print("encryption overflow error!")
             print(encInfoVector.DATA)
             print(iVecDecQuantized.flatten())
