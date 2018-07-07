@@ -8,9 +8,7 @@ import numpy as np
 from simulation import Parameters as param, Agent, Sensor
 
 # Override default simulation parameters (see the class definition for a full list)
-param.TOTAL_RUNS = 100
-param.TRY_MULTIPROCESSING = False
-param.NORMALIZE_MEASUREMENT_COUNT = True
+#param.DO_NOT_ENCRYPT = True
 
 # Place 25 sensors across the area
 sensorCount, placementStep = param.SENSOR_GRID_ROW_COUNT * param.SENSOR_GRID_ROW_COUNT, param.AREA_SIDE_LENGTH / (param.SENSOR_GRID_ROW_COUNT - 1)
@@ -35,7 +33,7 @@ MinorHub4.MyNeighbours = [SensorArray[14], SensorArray[17], SensorArray[19], Sen
 
 # Runs a simulation a specified number of times
 def Simulation(runs, PID = None):
-    EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance = 0, np.zeros((2,2), dtype=float), np.zeros((2,2), dtype=float)
+    EstimateCount, MeasCount, errEnc, errF, err8, err16, err24, errEncN, errFN, err8N, err16N, err24N = 0,0,0,0,0,0,0,0,0,0,0,0
     for run in range(runs):
         if runs < 100 or run % (runs // 100) == 0:
             if PID is None:
@@ -46,28 +44,45 @@ def Simulation(runs, PID = None):
         # Spawn a new agent at the edge of the field with a constant velocity
         CurrentAgent = Agent(run, CentralHub)
         while CurrentAgent.Update():
-            # Evaluate the estimate
-            encryptionError, controlError = CurrentAgent.stateEstimate - CurrentAgent.MyPos, CurrentAgent.controlEstimate - CurrentAgent.MyPos
-            EncryptedEstimateCovariance += np.dot(encryptionError, np.transpose(encryptionError))
-            ControlEstimateCovariance += np.dot(controlError, np.transpose(controlError))
+            # Evaluate the estimates
+            if not param.DO_NOT_ENCRYPT:
+                errEnc  += np.linalg.norm(CurrentAgent.xEstEnc  - CurrentAgent.MyPos) ** 2
+                errEncN += np.linalg.norm(CurrentAgent.xEstEncN - CurrentAgent.MyPos) ** 2
+            
+            errF   += np.linalg.norm(CurrentAgent.xEstF   - CurrentAgent.MyPos) ** 2
+            err8   += np.linalg.norm(CurrentAgent.xEst8   - CurrentAgent.MyPos) ** 2
+            err16  += np.linalg.norm(CurrentAgent.xEst16  - CurrentAgent.MyPos) ** 2
+            err24  += np.linalg.norm(CurrentAgent.xEst24  - CurrentAgent.MyPos) ** 2
+            errFN  += np.linalg.norm(CurrentAgent.xEstFN  - CurrentAgent.MyPos) ** 2
+            err8N  += np.linalg.norm(CurrentAgent.xEst8N  - CurrentAgent.MyPos) ** 2
+            err16N += np.linalg.norm(CurrentAgent.xEst16N - CurrentAgent.MyPos) ** 2
+            err24N += np.linalg.norm(CurrentAgent.xEst24N - CurrentAgent.MyPos) ** 2
+            
             EstimateCount += 1
-    return EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance
+            MeasCount += CentralHub.LastMeasurementCount
+    return EstimateCount, MeasCount, errEnc, errF, err8, err16, err24, errEncN, errFN, err8N, err16N, err24N
 
 # A wrapper for the simulation function that lets it run in parallel
-def ParallelSimulaton(PID, runs, globalEstCount, globalEncCov, globalControlCov):
+def ParallelSimulaton(PID, runs, globalEstCount, globalMeasCount, globalSquaredError, globalSquaredErrorNormalized):
     # Run the simulation
-    EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance = Simulation(runs, PID=PID)
+    EstimateCount, MeasCount, errEnc, errF, err8, err16, err24, errEncN, errFN, err8N, err16N, err24N = Simulation(runs, PID=PID)
     # Synchronize the output
     with globalEstCount.get_lock():
         globalEstCount.value += EstimateCount
-    with globalEncCov.get_lock():
-        EncryptedEstimateCovariance = np.reshape(EncryptedEstimateCovariance, 4)
-        for i in range(4):
-            globalEncCov[i] += np.asscalar(EncryptedEstimateCovariance[i])
-    with globalControlCov.get_lock():
-        ControlEstimateCovariance = np.reshape(ControlEstimateCovariance, 4)
-        for i in range(4):
-            globalControlCov[i] += np.asscalar(ControlEstimateCovariance[i])
+    with globalMeasCount.get_lock():
+        globalMeasCount.value += MeasCount
+    with globalSquaredError.get_lock():
+        globalSquaredError[0] += errF
+        globalSquaredError[1] += err8
+        globalSquaredError[2] += err16
+        globalSquaredError[3] += err24
+        globalSquaredError[4] += errEnc
+    with globalSquaredErrorNormalized.get_lock():
+        globalSquaredErrorNormalized[0] += errFN
+        globalSquaredErrorNormalized[1] += err8N
+        globalSquaredErrorNormalized[2] += err16N
+        globalSquaredErrorNormalized[3] += err24N
+        globalSquaredErrorNormalized[4] += errEncN
 
 if __name__ == '__main__':
     # Check for parallelization
@@ -77,9 +92,9 @@ if __name__ == '__main__':
         # Split the total number of experiments equally between processes
         experimentsPerProcess = param.TOTAL_RUNS // parallelProcessCount
         # Prepare output structures for the processes
-        syncEstimateCount, syncEncryptedEstimateCovariance, syncControlEstimateCovariance = mp.Value("d", 0), mp.Array("d", 4), mp.Array("d", 4)
+        syncEstimateCount, syncMeasurementCount, syncError, syncErrorNormalized = mp.Value("d", 0), mp.Value("d", 0), mp.Array("d", 5), mp.Array("d", 5)
         # Create the process objects
-        processes = [mp.Process(target=ParallelSimulaton, args=(p, experimentsPerProcess, syncEstimateCount, syncEncryptedEstimateCovariance, syncControlEstimateCovariance)) for p in range(parallelProcessCount)]
+        processes = [mp.Process(target=ParallelSimulaton, args=(p, experimentsPerProcess, syncEstimateCount, syncMeasurementCount, syncError, syncErrorNormalized)) for p in range(parallelProcessCount)]
         
         # Run all processes in parallel
         [p.start() for p in processes]
@@ -87,16 +102,50 @@ if __name__ == '__main__':
         
         # Finally, format the output
         EstimateCount = int(syncEstimateCount.value)
-        EncryptedEstimateCovariance = np.ndarray((2,2), buffer=np.array(syncEncryptedEstimateCovariance[:], dtype=float)) / (EstimateCount - 1)
-        ControlEstimateCovariance = np.ndarray((2,2), buffer=np.array(syncControlEstimateCovariance[:], dtype=float)) / (EstimateCount - 1)
+        AvgMeasCount = float(syncMeasurementCount.value) / EstimateCount
+        
+        errF    = np.sqrt(float(syncError[0]) / EstimateCount)
+        err8    = np.sqrt(float(syncError[1]) / EstimateCount)
+        err16   = np.sqrt(float(syncError[2]) / EstimateCount)
+        err24   = np.sqrt(float(syncError[3]) / EstimateCount)
+        errEnc  = np.sqrt(float(syncError[4]) / EstimateCount)
+        
+        errFN   = np.sqrt(float(syncErrorNormalized[0]) / EstimateCount)
+        err8N   = np.sqrt(float(syncErrorNormalized[1]) / EstimateCount)
+        err16N  = np.sqrt(float(syncErrorNormalized[2]) / EstimateCount)
+        err24N  = np.sqrt(float(syncErrorNormalized[3]) / EstimateCount)
+        errEncN = np.sqrt(float(syncErrorNormalized[4]) / EstimateCount)
     else:
-        EstimateCount, EncryptedEstimateCovariance, ControlEstimateCovariance = Simulation(param.TOTAL_RUNS)
-        EncryptedEstimateCovariance /= EstimateCount - 1
-        ControlEstimateCovariance /= EstimateCount - 1
+        EstimateCount, MeasCount, errEnc, errF, err8, err16, err24, errEncN, errFN, err8N, err16N, err24N = Simulation(param.TOTAL_RUNS)
+        AvgMeasCount = MeasCount / EstimateCount
+        
+        errEnc  = np.sqrt(errEnc  / EstimateCount)
+        errF    = np.sqrt(errF    / EstimateCount)
+        err8    = np.sqrt(err8    / EstimateCount)
+        err16   = np.sqrt(err16   / EstimateCount)
+        err24   = np.sqrt(err24   / EstimateCount)
+        
+        errEncN = np.sqrt(errEncN / EstimateCount)
+        errFN   = np.sqrt(errFN   / EstimateCount)
+        err8N   = np.sqrt(err8N   / EstimateCount)
+        err16N  = np.sqrt(err16N  / EstimateCount)
+        err24N  = np.sqrt(err24N  / EstimateCount)
     
     # Print the results
     print("total number of estimations made:", EstimateCount, ", per experiment:", EstimateCount / param.TOTAL_RUNS)
-    EncryptedMSE, ControlMSE = EncryptedEstimateCovariance[0,0]+EncryptedEstimateCovariance[1,1], ControlEstimateCovariance[0,0]+ControlEstimateCovariance[1,1]
-    print("encrypted estimator MSE:", EncryptedMSE)
-    print("control estimator MSE:", ControlMSE)
-    print("Mean Squared Error gain:", EncryptedMSE-ControlMSE, "(", (EncryptedMSE-ControlMSE)/ControlMSE*100, "%)")
+    print("average aggregated measurements per estimation:", AvgMeasCount)
+    print("============= REGULAR ESTIMATION =============")
+    print("RMSE     plaintext float:\t", errF)
+    print("RMSE  8 bit quantization:\t", err8)
+    print("RMSE 16 bit quantization:\t", err16)
+    if not param.DO_NOT_ENCRYPT:
+        print("RMSE 16 bit  (encrypted):\t", errEnc)
+    print("RMSE 24 bit quantization:\t", err24)
+    print("precision loss due to 16 bit quantization (negative means smaller MSE with encryption!):\n", err16 - errF)
+    print("============ NORMALIZED ESTIMATION ===========")
+    print("RMSE     plaintext float:\t", errFN)
+    print("RMSE  8 bit quantization:\t", err8N)
+    print("RMSE 16 bit quantization:\t", err16N)
+    if not param.DO_NOT_ENCRYPT:
+        print("RMSE 16 bit  (encrypted):\t", errEncN)
+    print("RMSE 24 bit quantization:\t", err24N)
