@@ -12,11 +12,7 @@ class SimSensor(object):
     '''
     Simulated sensor measuring the position of the tracked object via angle and distance to it.
     Dynamically estimates the measurement covariance around the measured position.
-    '''    
-    Qfactor8bit = 2**8
-    Qfactor16bit = 2**16
-    Qfactor24bit = 2**24
-
+    '''
     def __init__(self, ID, PosX, PosY):
         '''
         Constructor
@@ -85,92 +81,77 @@ class SimSensor(object):
         return informationVector, informationMatrix
     
     def GetMeasurementInfoFormAsInteger(self, realPos, scalingFactor, fast = False):
-        infMeas, infCov = self.GetMeasurementInformationForm(realPos, fast = fast)
-        outMeas8bit = np.rint(infMeas * self.Qfactor8bit).astype(np.int64)
-        outCov8bit = np.rint(infCov * self.Qfactor8bit).astype(np.int64)
-        outMeas16bit = np.rint(infMeas * self.Qfactor16bit).astype(np.int64)
-        outCov16bit = np.rint(infCov * self.Qfactor16bit).astype(np.int64)
-        outMeas24bit = np.rint(infMeas * self.Qfactor24bit).astype(np.int64)
-        outCov24bit = np.rint(infCov * self.Qfactor24bit).astype(np.int64)
+        iVecF, iMatF = self.GetMeasurementInformationForm(realPos, fast = fast)
+        iVec8  = np.rint(iVecF * param.QUANTIZATION_FACTOR_8).astype(np.int64)
+        iMat8  = np.rint(iMatF * param.QUANTIZATION_FACTOR_8).astype(np.int64)
+        iVec16 = np.rint(iVecF * param.QUANTIZATION_FACTOR_16).astype(np.int64)
+        iMat16 = np.rint(iMatF * param.QUANTIZATION_FACTOR_16).astype(np.int64)
+        iVec24 = np.rint(iVecF * param.QUANTIZATION_FACTOR_24).astype(np.int64)
+        iMat24 = np.rint(iMatF * param.QUANTIZATION_FACTOR_24).astype(np.int64)
         
         # Normalized
-        infMeasNorm, infCovNorm = infMeas * scalingFactor, infCov * scalingFactor
-        outMeas8bitNorm = np.rint(infMeasNorm * self.Qfactor8bit).astype(np.int64)
-        outCov8bitNorm = np.rint(infCovNorm * self.Qfactor8bit).astype(np.int64)
-        outMeas16bitNorm = np.rint(infMeasNorm * self.Qfactor16bit).astype(np.int64)
-        outCov16bitNorm = np.rint(infCovNorm * self.Qfactor16bit).astype(np.int64)
-        outMeas24bitNorm = np.rint(infMeasNorm * self.Qfactor24bit).astype(np.int64)
-        outCov24bitNorm = np.rint(infCovNorm * self.Qfactor24bit).astype(np.int64)
+        iVecFN, iMatFN = iVecF * scalingFactor, iMatF * scalingFactor
+        iVec8N  = np.rint(iVecFN * param.QUANTIZATION_FACTOR_8).astype(np.int64)
+        iMat8N  = np.rint(iMatFN * param.QUANTIZATION_FACTOR_8).astype(np.int64)
+        iVec16N = np.rint(iVecFN * param.QUANTIZATION_FACTOR_16).astype(np.int64)
+        iMat16N = np.rint(iMatFN * param.QUANTIZATION_FACTOR_16).astype(np.int64)
+        iVec24N = np.rint(iVecFN * param.QUANTIZATION_FACTOR_24).astype(np.int64)
+        iMat24N = np.rint(iMatFN * param.QUANTIZATION_FACTOR_24).astype(np.int64)
         
-        return outMeas8bit, outCov8bit, infMeas, infCov, outMeas16bit, outCov16bit, outMeas24bit, outCov24bit, infMeasNorm, infCovNorm, outMeas8bitNorm, outCov8bitNorm, outMeas16bitNorm, outCov16bitNorm, outMeas24bitNorm, outCov24bitNorm
+        return iVecF, iMatF, iVec8, iMat8, iVec16, iMat16, iVec24, iMat24, iVecFN, iMatFN, iVec8N, iMat8N, iVec16N, iMat16N, iVec24N, iMat24N
     
-    def GetAggregatedMeasurementInfoFormAsInteger(self, realPos, fast = False, scalingFactor = None):
+    def GetAggregatedMeasurements(self, realPos, publicKey, fast = False, scalingFactor = None):
         # Obtain the scaling factor
         self.CountMeasurements(realPos)
         if scalingFactor is None:
             scalingFactor = float(param.RENORMALIZATION_FACTOR) / self.LastMeasurementCount if self.LastMeasurementCount > 0 else 0
     
         try:
-            outMeas8bit, outCov8bit, infMeas, infCov, outMeas16bit, outCov16bit, outMeas24bit, outCov24bit, infMeasN, infCovN, outMeas8bitN, outCov8bitN, outMeas16bitN, outCov16bitN, outMeas24bitN, outCov24bitN = self.GetMeasurementInfoFormAsInteger(realPos, scalingFactor = scalingFactor, fast = fast)
+            iVecF, iMatF, iVec8, iMat8, iVec16, iMat16, iVec24, iMat24, iVecFN, iMatFN, iVec8N, iMat8N, iVec16N, iMat16N, iVec24N, iMat24N = self.GetMeasurementInfoFormAsInteger(realPos, scalingFactor = scalingFactor, fast = fast)
         except ValueError:
-            outMeas8bit, outCov8bit = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
-            outMeas16bit, outCov16bit = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
-            outMeas24bit, outCov24bit = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
-            infMeas, infCov = np.zeros((2,1), dtype=float), np.zeros((2,2), dtype=float)
-            outMeas8bitN, outCov8bitN = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
-            outMeas16bitN, outCov16bitN = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
-            outMeas24bitN, outCov24bitN = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
-            infMeasN, infCovN = np.zeros((2,1), dtype=float), np.zeros((2,2), dtype=float)
+            iVecF,  iMatF  = np.zeros((2,1), dtype=float), np.zeros((2,2), dtype=float)
+            iVec8,  iMat8  = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
+            iVec16, iMat16, iVec24, iMat24 = np.copy(iVec8), np.copy(iMat8), np.copy(iVec8), np.copy(iMat8)
+            iVecFN, iMatFN = np.copy(iVecF), np.copy(iMatF)
+            iVec8N, iMat8N, iVec16N, iMat16N, iVec24N, iMat24N = np.copy(iVec8), np.copy(iMat8), np.copy(iVec8), np.copy(iMat8), np.copy(iVec8), np.copy(iMat8)
+            
+        # Encrypt 16 bit-quantized measurements
+        if not param.DO_NOT_ENCRYPT:
+            encVec  = EncryptedArray((2,1), publicKey, plaintextBuffer=iVec16)
+            encMat  = EncryptedArray((2,2), publicKey, plaintextBuffer=iMat16)
+            encVecN = EncryptedArray((2,1), publicKey, plaintextBuffer=iVec16N)
+            encMatN = EncryptedArray((2,2), publicKey, plaintextBuffer=iMat16N)
+        else:
+            encVec, encMat, encVecN, encMatN = 0, 0, 0, 0
         
         for neighbor in self.MyNeighbours:
-            neighInt8Meas, neighInt8Cov, neighFloatMeas, neighFloatCov, neighInt16Meas, neighInt16Cov, neighInt24Meas, neighInt24Cov, neighFloatMeasN, neighFloatCovN, neighInt8MeasN, neighInt8CovN, neighInt16MeasN, neighInt16CovN, neighInt24MeasN, neighInt24CovN = neighbor.GetAggregatedMeasurementInfoFormAsInteger(realPos, scalingFactor = scalingFactor, fast=fast)
+            nencVec, nencMat, nencVecN, nencMatN, niVecF, niMatF, niVec8, niMat8, niVec16, niMat16, niVec24, niMat24, niVecFN, niMatFN, niVec8N, niMat8N, niVec16N, niMat16N, niVec24N, niMat24N = neighbor.GetAggregatedMeasurements(realPos, publicKey, scalingFactor = scalingFactor, fast = fast)
             # Now aggregate the measurements
-            outMeas8bit += neighInt8Meas
-            outCov8bit += neighInt8Cov
-            outMeas16bit += neighInt16Meas
-            outCov16bit += neighInt16Cov
-            outMeas24bit += neighInt24Meas
-            outCov24bit += neighInt24Cov
-            infMeas += neighFloatMeas
-            infCov += neighFloatCov
-            outMeas8bitN += neighInt8MeasN
-            outCov8bitN += neighInt8CovN
-            outMeas16bitN += neighInt16MeasN
-            outCov16bitN += neighInt16CovN
-            outMeas24bitN += neighInt24MeasN
-            outCov24bitN += neighInt24CovN
-            infMeasN += neighFloatMeasN
-            infCovN += neighFloatCovN
+            iVecF += niVecF
+            iMatF += niMatF
+            iVec8 += niVec8
+            iMat8 += niMat8
+            iVec16 += niVec16
+            iMat16 += niMat16
+            iVec24 += niVec24
+            iMat24 += niMat24
+            # Normalized forms
+            iVecFN += niVecFN
+            iMatFN += niMatFN
+            iVec8N += niVec8N
+            iMat8N += niMat8N
+            iVec16N += niVec16N
+            iMat16N += niMat16N
+            iVec24N += niVec24N
+            iMat24N += niMat24N
+            # Encrypted aggregation
+            if not param.DO_NOT_ENCRYPT:
+                encVec.Add(nencVec)
+                encMat.Add(nencMat)
+                encVecN.Add(nencVecN)
+                encMatN.Add(nencMatN)
         
-        return outMeas8bit, outCov8bit, infMeas, infCov, outMeas16bit, outCov16bit, outMeas24bit, outCov24bit, infMeasN, infCovN, outMeas8bitN, outCov8bitN, outMeas16bitN, outCov16bitN, outMeas24bitN, outCov24bitN
-    
-    def GetEncryptedMeasurement(self, realPos, requester, publicKey, networkLog = False, scalingFactor = None):  
-        # Get plaintext measurement as integer, but if it throws an error because it cannot detect the agent at this range,
-        # simply returning all zeroes in this case doesn't affect the end result
-        try:
-            intMeas, intCov, floatMeas, floatCov = self.GetMeasurementInfoFormAsInteger(realPos, scalingFactor, fast = True)
-        except ValueError:
-            intMeas, intCov = np.zeros((2,1), dtype=np.int64), np.zeros((2,2), dtype=np.int64)
-            floatMeas, floatCov = np.zeros((2,1), dtype=float), np.zeros((2,2), dtype=float)
-        # Encrypt every element with the supplied public key
-        encMeas = EncryptedArray((2,1), publicKey, plaintextBuffer=intMeas)
-        encCov = EncryptedArray((2,2), publicKey, plaintextBuffer=intCov)
-        
-        # Now query every neighbor for their measurements
-        for neighbor in self.MyNeighbours:
-            # Get the measurements from neighbors
-            neighEncMeas, neighEncCov, neighIntMeas, neighIntCov, neighFloatMeas, neighFloatCov = neighbor.GetEncryptedMeasurement(realPos, self.Name, publicKey, scalingFactor = scalingFactor)
-            # Now aggregate the measurements
-            encMeas.Add(neighEncMeas)
-            encCov.Add(neighEncCov)
-            intMeas += neighIntMeas
-            intCov += neighIntCov
-            floatMeas += neighFloatMeas
-            floatCov += neighFloatCov
-        # Return the aggregated results to requester
-        if networkLog:
-            print("NETWORK LOG:", self.Name, "->", requester, ":", [encMeas.DATA, encCov.DATA])
-        return encMeas, encCov, intMeas, intCov, floatMeas, floatCov
+        return encVec, encMat, encVecN, encMatN, iVecF, iMatF, iVec8, iMat8, iVec16, iMat16, iVec24, iMat24, iVecFN, iMatFN, iVec8N, iMat8N, iVec16N, iMat16N, iVec24N, iMat24N
     
     def CountMeasurements(self, AgentPos):
         self.LastMeasurementCount = 1 if self.CanSeeAgent(AgentPos) else 0

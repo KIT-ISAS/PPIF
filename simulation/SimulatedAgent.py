@@ -7,7 +7,6 @@ import numpy as np
 from numpy.random import normal as Gauss
 from encryption import PaillierCryptosystem as Crypto
 from simulation import Parameters as param
-from simulation.SimulatedSensor import SimSensor
 
 class SimAgent(object):
     '''
@@ -37,7 +36,7 @@ class SimAgent(object):
         self.ProcessNoise = np.identity(2, dtype=float) * param.AGENT_VELOCITY_SIGMA * param.AGENT_VELOCITY_SIGMA
     
         # Initialize state estimate and the controls
-        self.stateEstimate, self.estimateCov = np.ndarray((2,1), buffer = np.ones((2), dtype=float) * (param.AREA_SIDE_LENGTH / 2)), np.identity((2), dtype=float) * param.QUANTIZATION_FACTOR
+        self.stateEstimate, self.estimateCov = np.ndarray((2,1), buffer = np.ones((2), dtype=float) * (param.AREA_SIDE_LENGTH / 2)), np.identity((2), dtype=float) * param.QUANTIZATION_FACTOR_16
         self.controlEstimate, self.controlCov = np.copy(self.stateEstimate), np.copy(self.estimateCov)
         
         self.stateEst16, self.estCov16 = np.copy(self.stateEstimate), np.copy(self.estimateCov)
@@ -76,18 +75,15 @@ class SimAgent(object):
         self.stateEst24N, self.estCov24N, predictInfo24N, predictCov24N = self.PredictionStep(self.stateEst24N, self.estCov24N, fast=True)
         
         # Obtain encrypted measurements from the sensor grid
-        integerInfoVector, integerInfoMatrix, controlInfoVector, controlInfoMatrix, int16InfoV, int16InfoM, int24InfoV, int24InfoM, fInfoVecN, fInfoMatN, i8InfoVecN, i8InfoMatN, i16InfoVecN, i16InfoMatN, i24InfoVecN, i24InfoMatN = self.MySensor.GetAggregatedMeasurementInfoFormAsInteger(self.MyPos, fast=True)
-        decryptedInfoVector, decryptedInfoMatrix = integerInfoVector.astype(float) / SimSensor.Qfactor8bit, integerInfoMatrix.astype(float) / SimSensor.Qfactor8bit
+        _, _, _, _, controlInfoVector, controlInfoMatrix, integerInfoVector, integerInfoMatrix, int16InfoV, int16InfoM, int24InfoV, int24InfoM, fInfoVecN, fInfoMatN, i8InfoVecN, i8InfoMatN, i16InfoVecN, i16InfoMatN, i24InfoVecN, i24InfoMatN = self.MySensor.GetAggregatedMeasurements(self.MyPos, self.pk, fast=True)
+        decryptedInfoVector, decryptedInfoMatrix = integerInfoVector.astype(float) / param.QUANTIZATION_FACTOR_8, integerInfoMatrix.astype(float) / param.QUANTIZATION_FACTOR_8
         
-        decInfoVector16, decInfoMat16 = int16InfoV.astype(float) / SimSensor.Qfactor16bit, int16InfoM.astype(float) / SimSensor.Qfactor16bit
-        decInfoVector24, decInfoMat24 = int24InfoV.astype(float) / SimSensor.Qfactor24bit, int24InfoM.astype(float) / SimSensor.Qfactor24bit
+        decInfoVector16, decInfoMat16 = int16InfoV.astype(float) / param.QUANTIZATION_FACTOR_16, int16InfoM.astype(float) / param.QUANTIZATION_FACTOR_16
+        decInfoVector24, decInfoMat24 = int24InfoV.astype(float) / param.QUANTIZATION_FACTOR_24, int24InfoM.astype(float) / param.QUANTIZATION_FACTOR_24
         
-        decInfoVector8N, decInfoMat8N = i8InfoVecN.astype(float) / SimSensor.Qfactor8bit, i8InfoMatN.astype(float) / SimSensor.Qfactor8bit
-        decInfoVector16N, decInfoMat16N = i16InfoVecN.astype(float) / SimSensor.Qfactor16bit, i16InfoMatN.astype(float) / SimSensor.Qfactor16bit
-        decInfoVector24N, decInfoMat24N = i24InfoVecN.astype(float) / SimSensor.Qfactor24bit, i24InfoMatN.astype(float) / SimSensor.Qfactor24bit
-
-        #encryptedInfoVector, encryptedInfoMatrix, _, _, controlInfoVector, controlInfoMatrix = self.MySensor.GetEncryptedMeasurement(self.MyPos, self.Name, self.pk)
-        #decryptedInfoVector, decryptedInfoMatrix = self.DecryptMeasurementResults(encryptedInfoVector, encryptedInfoMatrix, controlInfoVector)
+        decInfoVector8N, decInfoMat8N = i8InfoVecN.astype(float) / param.QUANTIZATION_FACTOR_8, i8InfoMatN.astype(float) / param.QUANTIZATION_FACTOR_8
+        decInfoVector16N, decInfoMat16N = i16InfoVecN.astype(float) / param.QUANTIZATION_FACTOR_16, i16InfoMatN.astype(float) / param.QUANTIZATION_FACTOR_16
+        decInfoVector24N, decInfoMat24N = i24InfoVecN.astype(float) / param.QUANTIZATION_FACTOR_24, i24InfoMatN.astype(float) / param.QUANTIZATION_FACTOR_24
         
         # Apply the information filter
         self.stateEstimate, self.estimateCov = self.InformationFilterStep(predictInfo, predictCovInfo, decryptedInfoVector, decryptedInfoMatrix)
@@ -142,8 +138,8 @@ class SimAgent(object):
     def DecryptMeasurementResults(self, encInfoVector, encInfoMatrix, validationVector):
         # The try-catch is here for debugging overflow errors
         try:
-            result1 = encInfoVector.Decrypt(self.sk).astype(float) / param.QUANTIZATION_FACTOR
-            result2 = encInfoMatrix.Decrypt(self.sk).astype(float) / param.QUANTIZATION_FACTOR
+            result1 = encInfoVector.Decrypt(self.sk).astype(float) / param.QUANTIZATION_FACTOR_16
+            result2 = encInfoMatrix.Decrypt(self.sk).astype(float) / param.QUANTIZATION_FACTOR_16
         except OverflowError as e:
             print("info vector", encInfoVector.DATA)
             print("info matrix", encInfoMatrix.DATA)

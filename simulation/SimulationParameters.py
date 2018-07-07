@@ -13,6 +13,9 @@ class SimParameters(object):
     # Whether parallel processing should be attempted
     TRY_MULTIPROCESSING = True
     
+    # Whether to actually encrypt communications (or to just evaluate the quantization, for performance reasons)
+    DO_NOT_ENCRYPT = False
+    
     # How many agent runs in total the simulation should include
     TOTAL_RUNS = 10000
     
@@ -23,8 +26,9 @@ class SimParameters(object):
     AREA_SIDE_LENGTH = 100.0 # m
     
     # Fractional precision of pre-encryption quantization
-    BIT_PRECISION = 16 # bits
-    QUANTIZATION_FACTOR = 2 ** BIT_PRECISION
+    QUANTIZATION_FACTOR_8  = 2**8
+    QUANTIZATION_FACTOR_16 = 2**16
+    QUANTIZATION_FACTOR_24 = 2**24
     
     # The length of the encryption key (for test purposes only, no real security guarantee!)
     CRYPTO_KEY_LENGTH = 64 # bits

@@ -8,12 +8,9 @@ import numpy as np
 from simulation import Parameters as param, Agent, Sensor
 
 # Override default simulation parameters (see the class definition for a full list)
-param.TOTAL_RUNS = 10000
-param.TRY_MULTIPROCESSING = True
-param.SENSOR_AZIMUTH_SIGMA = np.pi/12
-param.SENSOR_DISTANCE_SIGMA = 5.0
-param.SENSOR_DETECTION_RANGE = 50.0
-param.RENORMALIZATION_FACTOR = 10
+param.TRY_MULTIPROCESSING = False
+param.TOTAL_RUNS = 10
+param.DO_NOT_ENCRYPT = True
 
 # Place 25 sensors across the area
 sensorCount, placementStep = param.SENSOR_GRID_ROW_COUNT * param.SENSOR_GRID_ROW_COUNT, param.AREA_SIDE_LENGTH / (param.SENSOR_GRID_ROW_COUNT - 1)
