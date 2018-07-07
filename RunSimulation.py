@@ -48,11 +48,11 @@ def Simulation(runs, PID = None):
         CurrentAgent = Agent(run, CentralHub)
         while CurrentAgent.Update():
             # Evaluate the estimate
-            encryptionError, controlError = CurrentAgent.stateEstimate - CurrentAgent.MyPos, CurrentAgent.controlEstimate - CurrentAgent.MyPos
-            q16error, q24error = CurrentAgent.stateEst16 - CurrentAgent.MyPos, CurrentAgent.stateEst24 - CurrentAgent.MyPos
+            encryptionError, controlError = CurrentAgent.xEst8 - CurrentAgent.MyPos, CurrentAgent.xEstF - CurrentAgent.MyPos
+            q16error, q24error = CurrentAgent.xEst16 - CurrentAgent.MyPos, CurrentAgent.xEst24 - CurrentAgent.MyPos
             
-            controlErrorN, q8errorN = CurrentAgent.stateEstFN - CurrentAgent.MyPos, CurrentAgent.stateEst8N - CurrentAgent.MyPos
-            q16errorN, q24errorN = CurrentAgent.stateEst16N - CurrentAgent.MyPos, CurrentAgent.stateEst24N - CurrentAgent.MyPos
+            controlErrorN, q8errorN = CurrentAgent.xEstFN - CurrentAgent.MyPos, CurrentAgent.xEst8N - CurrentAgent.MyPos
+            q16errorN, q24errorN = CurrentAgent.xEst16N - CurrentAgent.MyPos, CurrentAgent.xEst24N - CurrentAgent.MyPos
             
             #floatErrNorm, q8ErrNorm, q16ErrNorm, q24ErrNorm
             
